@@ -1,13 +1,13 @@
 from newsapi import NewsApiClient
 
 class newsArticle:
-    def __init__(self, news_api):
+    def __init__(self, news_api, country):
         self.title = ""
-        self.author = ""
+        self.country = ""
         self.description = ""
         self.url = ""
         self.setTitle(news_api['title'])
-        self.setAuthor(news_api['author'])
+        self.setCountry(country)
         self.setDesc(news_api['content'])
         self.setURL(news_api['url'])
 
@@ -19,10 +19,10 @@ class newsArticle:
     def get_title(self):
         return self.title
     
-    def setAuthor(self, author):
-        self.author = author
-    def get_author(self):
-        return self.author
+    def setCountry(self, country):
+        self.country = country
+    def get_country(self):
+        return self.country
     
     def setDesc(self, description):
         self.description = description
