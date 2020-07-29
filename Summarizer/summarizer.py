@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 """
 import geograpy as geo
 import nltk
+import spacy
+nlp = spacy.load("en_core_web_sm")
+import re
 import requests
 from newsapi import NewsApiClient
 from news import newsArticle
@@ -14,6 +17,7 @@ from countries import listOfCountries
 def summary(headline, abr):
     # split the text into an array in order to analyze and de-abriviate
     description = headline.get_description()
+    if not description: return
     txt_raw = description.split(" ")
     # txt_chg is used to analyze the text for summarization without the abriviations
     txt_chg = abbriviation(abr, txt_raw)
@@ -41,9 +45,16 @@ def abbriviation(abr, txt):
     return txt
 
 def who_where(url, article):
-    return ""
-    places = geo.get_place_context(url= url)
-    #persons = get_human_names()
+    #places = geo.get_place_context(url= url)
+    doc = nlp(article)
+    names = ""
+    for ent in doc.ents:
+        tmp = re.sub(r'\W- +', "", str(ent))
+        if ent == doc.ents[-1]:
+            names+= tmp + '.'
+        else:
+            names += tmp + ", "
+    return names
 
 # article is an array. returns the summarized article
 def why_how(title, article):
@@ -149,17 +160,21 @@ def decrease_length(top_highest):
 
 
 def main():
-    newsapi = NewsApiClient(api_key='cf837dbe80ba4179beaa9ee8bcdfa08e')
-    top_headlines = newsapi.get_top_headlines()['articles']
-    #TODO: get headlines queried by country
-    countries = listOfCountries()
-    print(countries)
+    api_key = 'cf837dbe80ba4179beaa9ee8bcdfa08e'
+    newsapi = NewsApiClient(api_key= api_key)
+    countries = listOfCountries('newsAPI')
     abr = {"I'm": "I am", "Mr." : "Mister", "Ms." : "Miss", "Mrs.": "Missus", "don't": "do not", "he's": "he is",
             "U.S." : "United States", "U.S.A" : "United States of America", "U.A.E" : "United Arab Emirates"}
-    for headline in top_headlines:
-        headline_obj = newsArticle(headline)
-        summary(headline_obj, abr)
+    for count in countries:
+        count = str(count)
+        print(count)
+        top_5 = newsapi.get_top_headlines(page_size=5, page=1, country=count)['articles']
+        for headline in top_5:
+            headline_obj = newsArticle(headline, count)
+            summary(headline_obj, abr)
+    #TODO: get headlines queried by country, loop over the country and 
+    #      look through the api with queried countries and top 5 hits     
 
-
+"""country.lower()"""
 if __name__ == "__main__":
     main()
