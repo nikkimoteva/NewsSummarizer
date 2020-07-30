@@ -1,0 +1,11 @@
+nl
+en
+fr
+de
+hu
+nb
+it
+ro
+ru
+es
+sv
