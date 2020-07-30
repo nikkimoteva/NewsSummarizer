@@ -2,6 +2,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 """
+import sys
 import geograpy as geo
 import nltk
 import spacy
@@ -10,24 +11,35 @@ import re
 import requests
 from newsapi import NewsApiClient
 from news import newsArticle
-from countries import listOfCountries
+from countries import listOfCountries, listOfSpecCountries
+from mongodbDAO import Mongo 
+from MSTranslator import translate
+from WordStem import stemmer
 
 
 # summarize the text in 500 letters or 5 sentences maximum.
-def summary(headline, abr):
+def summary(headline, mdb, abr, lang_from, lang_to):
     # split the text into an array in order to analyze and de-abriviate
     description = headline.get_description()
     if not description: return
+    description = translate(lang_from, lang_to, description)
+    stem_languages = listOfSpecCountries('Languages.txt', 'LangMapStem.txt')
     txt_raw = description.split(" ")
+    for key, val in stem_languages.items():
+        if lang_to in stem_languages.keys():
+            stemmed_description = stemmer(txt_raw, str(val))
+    stemmed_description = txt_raw
     # txt_chg is used to analyze the text for summarization without the abriviations
     txt_chg = abbriviation(abr, txt_raw)
     # a matrix for analysis of importance of each word
     # TODO: rate each word's importance. ignore '.'(period) for now. 
     # add up every sentence's value in txt_no_period. compare 5 highest rated sentences vs best 300 letters
     url = headline.get_url()
-    whyHow = why_how(headline.get_title(), txt_chg)
-    whoWhere = who_where(url, description)
-    title = headline.get_title()
+    title = translate(lang_from, lang_to, headline.get_title())
+    stemmed_title = stemmer(title, lang_to)
+    whyHow = why_how(stemmed_title, txt_chg, stemmed_description, lang_from, lang_to)
+    whoWhere = who_where(url, description, lang_from, lang_to)
+    mdb.inserInDB(title, url, whoWhere, whyHow)
     print('title: ' + title +
           '\nurl: ' + url + 
           '\nWho: ' + whoWhere + 
@@ -38,13 +50,13 @@ def summary(headline, abr):
 
 # make sure that you uncode the abbriviation, so the analyzer won't get confused:
 # eg. sentence ending when reached Mr. ; won't = would not
-def abbriviation(abr, txt):
+def abbriviation(abr, txt): 
     for i in range(len(txt)):
         if txt[i] in abr:
             txt[i] = abr[txt[i]]
     return txt
 
-def who_where(url, article):
+def who_where(url, article, lang_from, lang_to):
     #places = geo.get_place_context(url= url)
     doc = nlp(article)
     names = ""
@@ -54,14 +66,16 @@ def who_where(url, article):
             names+= tmp + '.'
         else:
             names += tmp + ", "
-    return names
+    names_translated = translate(lang_from, lang_to, names)
+    return names_translated
 
 # article is an array. returns the summarized article
-def why_how(title, article):
+def why_how(title, article, stemmed, lang_from, lang_to):
     summary_title = removeExtraWords(title)
     # without white space
     array_title = summary_title.split()
-    txt_no_period = ' '.join(map(str, article)).split(".")
+    # txt_no_period = ' '.join(map(str, article)).split(".")
+    txt_no_period = ' '.join(map(str, stemmed)).split(".")
     keywords = set(array_title)
     rate = [0]*len(txt_no_period)
     for i in range(len(txt_no_period)):
@@ -69,7 +83,9 @@ def why_how(title, article):
         for word in current_sentence:
             if word in keywords:
                 rate[i]+=1
-    return compare(txt_no_period, rate)
+    summary = translate(lang_from, lang_to, compare(article, txt_no_period, rate))
+    return summary
+
 
 
 def removeExtraWords(title):
@@ -82,7 +98,7 @@ def removeExtraWords(title):
 
 
 # compare 5 highest rated sentences vs best 300 letters
-def compare(txt_no_period, rate):
+def compare(article, txt_no_period, rate):
     #sentence_length = []
     sentence_rate = {}
     #sentence_rate = 0
@@ -115,7 +131,7 @@ def compare(txt_no_period, rate):
     for k in range(len(top_highest)):
         for key, val in sentence_rate.items():
             if top_highest[k] == val:
-                paragraph+=txt_no_period[key]
+                paragraph+=article[key]
             #paragraph+=txt_no_period[sentence_rate[top_highest[key]]]
             paragraph += ". "
     return paragraph
@@ -160,21 +176,26 @@ def decrease_length(top_highest):
 
 
 def main():
+    mongo_delete = Mongo()
+    mongo_delete.deleteAllDB()
+    mongo_delete.closeConnection()
     api_key = 'cf837dbe80ba4179beaa9ee8bcdfa08e'
     newsapi = NewsApiClient(api_key= api_key)
     countries = listOfCountries('newsAPI')
+    translate = sys.argv[1]
     abr = {"I'm": "I am", "Mr." : "Mister", "Ms." : "Miss", "Mrs.": "Missus", "don't": "do not", "he's": "he is",
             "U.S." : "United States", "U.S.A" : "United States of America", "U.A.E" : "United Arab Emirates"}
     for count in countries:
-        count = str(count)
-        print(count)
-        top_5 = newsapi.get_top_headlines(page_size=5, page=1, country=count)['articles']
+        current_country = str(count)
+        current_language = countries[count]
+        mdb = Mongo()
+        top_5 = newsapi.get_top_headlines(page_size=5, page=1, country=current_country)['articles']
         for headline in top_5:
-            headline_obj = newsArticle(headline, count)
-            summary(headline_obj, abr)
+            headline_obj = newsArticle(headline, current_country)
+            summary(headline_obj, mdb, abr, current_language, str(translate))
+        mdb.closeConnection()
     #TODO: get headlines queried by country, loop over the country and 
     #      look through the api with queried countries and top 5 hits     
 
-"""country.lower()"""
 if __name__ == "__main__":
     main()
