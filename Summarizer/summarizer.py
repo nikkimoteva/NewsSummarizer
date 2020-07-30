@@ -26,7 +26,7 @@ def summary(headline, mdb, abr, lang_from, lang_to):
     stem_languages = listOfSpecCountries('Languages.txt', 'LangMapStem.txt')
     txt_raw = description.split(" ")
     for key, val in stem_languages.items():
-        if lang_to in stem_languages.keys():
+        if lang_to == key:
             stemmed_description = stemmer(txt_raw, str(val))
     stemmed_description = txt_raw
     # txt_chg is used to analyze the text for summarization without the abriviations
