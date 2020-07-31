@@ -7,16 +7,13 @@ class NewsArticle:
         self.description = ""
         self.url = ""
         self.tone = 0
-        self.lang = ""
+        self.language = ""
         self.SetTitle(news_api['title'])
         self.SetCountry(country)
         self.SetDescription(news_api['body'])
         self.SetURL(news_api['url'])
         self.SetTone(tone) 
-        self.SetLang(news_api['lang'][:2])
-
-    def GetBody(self, news_api):
-        return news_api.get_top_headlines()['articles']
+        self.SetLanguage(news_api['lang'][:2])
     
     def SetTitle(self, title):
         self.title = title
@@ -43,8 +40,8 @@ class NewsArticle:
     def GetTone(self):
         return self.tone
 
-    def SetLang(self, lang):
-        self.lang = lang
-    def GetLang(self):
-        return self.lang
+    def SetLanguage(self, language):
+        self.language = language
+    def GetLanguage(self):
+        return self.language
 
