@@ -3,92 +3,97 @@ import pandas as pd
 import matplotlib.pyplot as plt
 """
 import sys
-import geograpy as geo
 import nltk
 import spacy
 nlp = spacy.load("en_core_web_sm")
 import re
 import requests
 from newsapi import NewsApiClient
-from news import newsArticle
-from countries import listOfCountries, listOfSpecCountries
+from news import NewsArticle
+from countries import *
 from mongodbDAO import Mongo 
-from MSTranslator import translate
-from WordStem import stemmer
+from MSTranslator import Translate
+from ToneAnalyzer import ToneAnalyzer
+from WordStem import Stemmer
+from eventregistry import EventRegistry, QueryArticlesIter
 
 
+ 
 # summarize the text in 500 letters or 5 sentences maximum.
-def summary(headline, mdb, abr, lang_from, lang_to):
+def summary(headline, mdb, lang_from, lang_to):
     # split the text into an array in order to analyze and de-abriviate
     description = headline.get_description()
     if not description: return
-    description = translate(lang_from, lang_to, description)
-    stem_languages = listOfSpecCountries('Languages.txt', 'LangMapStem.txt')
-    txt_raw = description.split(" ")
-    for key, val in stem_languages.items():
+    description = Translate(lang_from, lang_to, description)
+    stemLanguages = ListOfSpecCountries('Languages.txt', 'LangMapStem.txt')
+    rawTextArray = description.split(" ")
+    stemsLang = ""
+    stemmedDescription = rawTextArray
+    for key, val in stemLanguages.items():
         if lang_to == key:
-            stemmed_description = stemmer(txt_raw, str(val))
-    stemmed_description = txt_raw
+            stemsLang = val
+            stemmedDescription = Stemmer(rawTextArray, str(val).lower())
     # txt_chg is used to analyze the text for summarization without the abriviations
-    txt_chg = abbriviation(abr, txt_raw)
-    # a matrix for analysis of importance of each word
-    # TODO: rate each word's importance. ignore '.'(period) for now. 
-    # add up every sentence's value in txt_no_period. compare 5 highest rated sentences vs best 300 letters
+    txt_chg = AbbriviationRemoval(rawTextArray)
     url = headline.get_url()
-    title = translate(lang_from, lang_to, headline.get_title())
-    stemmed_title = stemmer(title, lang_to)
-    whyHow = why_how(stemmed_title, txt_chg, stemmed_description, lang_from, lang_to)
-    whoWhere = who_where(url, description, lang_from, lang_to)
-    mdb.inserInDB(title, url, whoWhere, whyHow)
+    title = Translate(lang_from, lang_to, headline.get_title())
+    if stemsLang == "":
+        stemmedTitle = title
+    else:
+        stemmedTitle = Stemmer(title, stemsLang.lower())
+    whyHow = WhyHow(stemmedTitle, txt_chg, stemmedDescription, lang_from, lang_to)
+    whoWhere = WhoWhere(url, description, lang_from, lang_to)
+    tone = ToneAnalyzer(description)
+    mdb.InserInDB(headline.get_country(), title, url, whoWhere, whyHow, tone)
     print('title: ' + title +
           '\nurl: ' + url + 
-          '\nWho: ' + whoWhere + 
-          '\nSummary: ' + whyHow)
-
-
+          '\nWho/When/Where: ' + whoWhere + 
+          '\nSummary: ' + whyHow +
+          '\nTone: ' + str(tone))
 
 
 # make sure that you uncode the abbriviation, so the analyzer won't get confused:
 # eg. sentence ending when reached Mr. ; won't = would not
-def abbriviation(abr, txt): 
+def AbbriviationRemoval(txt): 
+    abr = {"I'm": "I am", "Mr." : "Mister", "Ms." : "Miss", "Mrs.": "Missus", "don't": "do not", "he's": "he is",
+            "U.S." : "United States", "U.S.A" : "United States of America", "U.A.E" : "United Arab Emirates"}
     for i in range(len(txt)):
         if txt[i] in abr:
             txt[i] = abr[txt[i]]
     return txt
 
-def who_where(url, article, lang_from, lang_to):
-    #places = geo.get_place_context(url= url)
+def WhoWhere(url, article, lang_from, lang_to):
     doc = nlp(article)
     names = ""
     for ent in doc.ents:
-        tmp = re.sub(r'\W- +', "", str(ent))
+        entRemovedExtraChars = re.sub(r'\W- +', "", str(ent))
         if ent == doc.ents[-1]:
-            names+= tmp + '.'
+            names+= entRemovedExtraChars + '.'
         else:
-            names += tmp + ", "
-    names_translated = translate(lang_from, lang_to, names)
-    return names_translated
+            names += entRemovedExtraChars + ", "
+    namesTranslated = Translate(lang_from, lang_to, names)
+    return namesTranslated
 
 # article is an array. returns the summarized article
-def why_how(title, article, stemmed, lang_from, lang_to):
-    summary_title = removeExtraWords(title)
+def WhyHow(title, article, stemmed, lang_from, lang_to):
+    summaryTitle = RemoveExtraWords(title)
     # without white space
-    array_title = summary_title.split()
-    # txt_no_period = ' '.join(map(str, article)).split(".")
-    txt_no_period = ' '.join(map(str, stemmed)).split(".")
+    array_title = summaryTitle.split()
+    # sentenceArrayNoPeriod = ' '.join(map(str, article)).split(".")
+    sentenceArrayNoPeriod = ' '.join(map(str, stemmed)).split(".")
     keywords = set(array_title)
-    rate = [0]*len(txt_no_period)
-    for i in range(len(txt_no_period)):
-        current_sentence = txt_no_period[i].split()
-        for word in current_sentence:
+    rate = [0]*len(sentenceArrayNoPeriod)
+    for i in range(len(sentenceArrayNoPeriod)):
+        currentSentence = sentenceArrayNoPeriod[i].split()
+        for word in currentSentence:
             if word in keywords:
                 rate[i]+=1
-    summary = translate(lang_from, lang_to, compare(article, txt_no_period, rate))
+    summary = Translate(lang_from, lang_to, Compare(sentenceArrayNoPeriod, rate))
     return summary
 
 
 
-def removeExtraWords(title):
+def RemoveExtraWords(title):
     extraWords = {"to", "and", "with", "after", "since", "but", "yet", "or", "for", "so", "although", "instead", "of",
                     "as", "in"}
     for word in title:
@@ -98,67 +103,59 @@ def removeExtraWords(title):
 
 
 # compare 5 highest rated sentences vs best 300 letters
-def compare(article, txt_no_period, rate):
+def Compare(sentenceArrayNoPeriod, rate):
     #sentence_length = []
-    sentence_rate = {}
-    #sentence_rate = 0
+    sentenceRate = {}
+    #sentenceRate = 0
     begin = 0
-    top_highest = [-1, -1, -1, -1, -1]
+    topHighest = [-1, -1, -1, -1, -1]
     # get the highest rated sentences
-    for i in range (len(txt_no_period)):
-        length_of_current_sentence = len(txt_no_period[i].split())
-        # might have to delete this variable. it records the length of words in every single sentence
-        """sentence_length.append(length_of_current_sentence)
-        for j in range (length_of_current_sentence):
-            try:
-                sentence_rate[i] += rate[j]
-            except:
-                sentence_rate[i] = rate[j]"""
-        sentence_rate[i] = rate[i]
-            #sentence_rate+=rate[j]
+    for i in range (len(sentenceArrayNoPeriod)):
+        lengthOfCurrentSentence = len(sentenceArrayNoPeriod[i].split())
+        sentenceRate[i] = rate[i]
+            #sentenceRate+=rate[j]
         # push all the data on the same spectrum of [0,1]
-        if length_of_current_sentence > 0:
-            sentence_rate[i] = sentence_rate[i] / length_of_current_sentence
-        if sentence_rate[i] > top_highest[0]:
-        #if sentence_rate > top_highest[0]:
-            top_highest[0] = sentence_rate[i]
-            top_highest.sort()
-        begin += length_of_current_sentence
+        if lengthOfCurrentSentence > 0:
+            sentenceRate[i] = sentenceRate[i] / lengthOfCurrentSentence
+        if sentenceRate[i] > topHighest[0]:
+        #if sentenceRate > topHighest[0]:
+            topHighest[0] = sentenceRate[i]
+            topHighest.sort()
+        begin += lengthOfCurrentSentence
     # make sure the length of text is within the constraints
-    top_highest = decrease_length(top_highest)
+    topHighest = DecreaseLength(topHighest)
     paragraph = ""
     # form the paragraph
-    for k in range(len(top_highest)):
-        for key, val in sentence_rate.items():
-            if top_highest[k] == val:
-                paragraph+=article[key]
-            #paragraph+=txt_no_period[sentence_rate[top_highest[key]]]
-            paragraph += ". "
+    for k in range(len(topHighest)):
+        for key, val in sentenceRate.items():
+            if topHighest[k] == val:
+                paragraph+= re.sub('\n', '', sentenceArrayNoPeriod[key])
+                paragraph += ". "
     return paragraph
 
-def decrease_length(top_highest):
+def DecreaseLength(topHighest):
     # comparison for length of text, must be within constraint of 300letters or 5sentences.
-    while len(top_highest) > 1:
-        difference = top_highest[-1] - top_highest[0]
+    while len(topHighest) > 1:
+        difference = topHighest[-1] - topHighest[0]
         if difference >= 2:
-            top_highest = top_highest[1:]
+            topHighest = topHighest[1:]
         else:
             break
     len_sen = []
     len_wrd = 0
-    for val in range(len(top_highest)):
-        len_sen.append(top_highest[val])
-        len_wrd += top_highest[val]
+    for val in range(len(topHighest)):
+        len_sen.append(topHighest[val])
+        len_wrd += topHighest[val]
     """if len_wrd > 300:
-        top_highest = top_highest[1:]
-        decrease_length(top_highest)
+        topHighest = topHighest[1:]
+        decrease_length(topHighest)
     else:
-        return top_highest"""
-    while -1 in top_highest:
-        top_highest.remove(-1)
-    while 0 in top_highest:
-        top_highest.remove(0)
-    return top_highest
+        return topHighest"""
+    while -1 in topHighest:
+        topHighest.remove(-1)
+    while 0 in topHighest:
+        topHighest.remove(0)
+    return topHighest
     
 
 # compare 3 stories, combine them into an unbiased text summary
@@ -176,16 +173,16 @@ def decrease_length(top_highest):
 
 
 def main():
-    mongo_delete = Mongo()
-    mongo_delete.deleteAllDB()
-    mongo_delete.closeConnection()
-    api_key = 'cf837dbe80ba4179beaa9ee8bcdfa08e'
+    mongoDelete = Mongo()
+    mongoDelete.DeleteAllDB()
+    mongoDelete.CloseConnection()
+    """api_key = 'cf837dbe80ba4179beaa9ee8bcdfa08e'
     newsapi = NewsApiClient(api_key= api_key)
-    countries = listOfCountries('newsAPI')
+    countries = listOfCountries('newsAPI')"""
+    er = EventRegistry(apiKey = "95488268-0bf9-4f68-b80a-d108e7d57d71", allowUseOfArchive = False)
+    countries = OneListOfCountry('Countries.txt')
     translate = sys.argv[1]
-    abr = {"I'm": "I am", "Mr." : "Mister", "Ms." : "Miss", "Mrs.": "Missus", "don't": "do not", "he's": "he is",
-            "U.S." : "United States", "U.S.A" : "United States of America", "U.A.E" : "United Arab Emirates"}
-    for count in countries:
+    """for count in countries:
         current_country = str(count)
         current_language = countries[count]
         mdb = Mongo()
@@ -193,7 +190,22 @@ def main():
         for headline in top_5:
             headline_obj = newsArticle(headline, current_country)
             summary(headline_obj, mdb, abr, current_language, str(translate))
-        mdb.closeConnection()
+        mdb.closeConnection()"""
+    for country in countries:
+        currentCountry = str(country)
+        mdb = Mongo()
+        countryNews = er.getLocationUri(currentCountry)
+        top10 = QueryArticlesIter(
+                                    sourceLocationUri = [countryNews],
+                                    isDuplicateFilter=False,
+                                    dataType='news'
+                                    )
+        for headline in top10.execQuery(er, sortBy="date", sortByAsc=False, maxItems=3):
+            # print(article['lang'], article['url'], article['title'], article['body'])
+            headlineObj = NewsArticle(headline, currentCountry)
+            summary(headlineObj, mdb, headlineObj.GetLang(), translate)
+        mdb.CloseConnection()
+        
     #TODO: get headlines queried by country, loop over the country and 
     #      look through the api with queried countries and top 5 hits     
 
