@@ -2,47 +2,48 @@ import pymongo as pm
 
 class Mongo:
     def __init__(self):
-        getClient = self.get_client()
+        getClient = self.GetClient()
         self.client = pm.MongoClient(getClient)
-        getDB = self.get_db()
+        getDB = self.GetDB()
         self.db = self.client[getDB]
-        getCollection = self.get_collection()
+        getCollection = self.GetCollection()
         self.collection = self.db[getCollection]
 
-    def get_client(self):
+    def GetClient(self):
         return "mongodb+srv://admin:admin@newssummary.xjugy.azure.mongodb.net/NewsSumm?retryWrites=true&w=majority"
     
-    def get_db(self):
+    def GetDB(self):
         return "News"
 
-    def get_collection(self):
+    def GetCollection(self):
         return 'NewsSumm'
 
-    def getSession(self):
+    def GetSession(self):
         return self.collection
 
-    def inserInDB(self, title, url, who, summary):
-        collection = self.getSession()
-        new_insert = {"title": title,
+    def InserInDB(self, country, title, url, whoWhenWhere, summary, tone):
+        collection = self.GetSession()
+        newInsert = {
+                    "country": country,
+                    "title": title,
                     "url": url,
-                    "who": who,
-                    "summary": summary}
-        check = collection.insert_one(new_insert)
-        print(check.inserted_id)
+                    "who/when/where": whoWhenWhere,
+                    "summary": summary,
+                    "tone: ": tone}
+        collection.insert_one(newInsert)
         
-    def findAllDB(self, collection, country):
-        collection = self.getSession()
-        query = {"country": country}
-        results = collection.find(query)
+    def FindAllDB(self, country):
+        collection = self.GetSession()
+        results = collection.find({"country": country})
         #returns a list of the results
         return results
 
-    def deleteAllDB(self):
-        collection = self.getSession()
+    def DeleteAllDB(self):
+        collection = self.GetSession()
         #delete all db right before update
         collection.delete_many({})
 
-    def closeConnection(self):
+    def CloseConnection(self):
         self.client.close()
     
 
