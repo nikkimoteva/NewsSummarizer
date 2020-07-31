@@ -1,21 +1,28 @@
 import os
 
-def listOfSpecCountries(file_country, file_lang):
-    f_country=open(file_country, 'r')
-    f_lang=open(file_lang, 'r')
-    content_country = f_country.read()
-    content_lang = f_lang.read()
-    array_country = content_country.split('\n')
-    array_lang = content_lang.split('\n')
-    content_list = {}
-    for i in range(len(array_country)):
-        content_list[str(array_country[i])] = str(array_lang[i])
-    f_country.close()
-    f_lang.close()
-    return content_list
+def ListOfSpecCountries(fileCountry, fileLang):
+    fCountry=open(fileCountry, 'r')
+    fLang=open(fileLang, 'r')
+    contentCountry = fCountry.read()
+    contentLang = fLang.read()
+    arrayCountry = contentCountry.split('\n')
+    arrayLang = contentLang.split('\n')
+    contentList = {}
+    for i in range(len(arrayCountry)):
+        contentList[str(arrayCountry[i])] = str(arrayLang[i])
+    fCountry.close()
+    fLang.close()
+    return contentList
 
-def listOfCountries(kind):
+def OneListOfCountry(file):
+    f=open(file, 'r')
+    content = f.read()
+    countries = content.split('\n')
+    f.close()
+    return countries
+
+def ListOfCountries(kind):
     if kind.lower() == 'all':
-        return listOfSpecCountries('ISO.3166-1.txt', 'languages.txt')
+        return ListOfSpecCountries('ISO.3166-1.txt', 'languages.txt')
     elif kind.lower() == 'newsapi':
-        return listOfSpecCountries('NEWSAPI-Countries.txt', 'LanguagesSpec.txt')
+        return ListOfSpecCountries('NEWSAPI-Countries.txt', 'LanguagesSpec.txt')
