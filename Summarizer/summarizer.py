@@ -20,31 +20,31 @@ from eventregistry import EventRegistry, QueryArticlesIter
 
  
 # summarize the text in 500 letters or 5 sentences maximum.
-def summary(headline, mdb, lang_from, lang_to):
+def summary(headline, mdb, langFrom, langTo):
     # split the text into an array in order to analyze and de-abriviate
-    description = headline.get_description()
+    description = headline.GetDescription()
     if not description: return
-    description = Translate(lang_from, lang_to, description)
+    description = Translate(langFrom, langTo, description)
     stemLanguages = ListOfSpecCountries('Languages.txt', 'LangMapStem.txt')
     rawTextArray = description.split(" ")
     stemsLang = ""
     stemmedDescription = rawTextArray
     for key, val in stemLanguages.items():
-        if lang_to == key:
+        if langFrom == key:
             stemsLang = val
             stemmedDescription = Stemmer(rawTextArray, str(val).lower())
     # txt_chg is used to analyze the text for summarization without the abriviations
     txt_chg = AbbriviationRemoval(rawTextArray)
-    url = headline.get_url()
-    title = Translate(lang_from, lang_to, headline.get_title())
+    url = headline.GetUrl()
+    title = Translate(langFrom, langTo, headline.GetTitle())
     if stemsLang == "":
         stemmedTitle = title
     else:
         stemmedTitle = Stemmer(title, stemsLang.lower())
-    whyHow = WhyHow(stemmedTitle, txt_chg, stemmedDescription, lang_from, lang_to)
-    whoWhere = WhoWhere(url, description, lang_from, lang_to)
+    whyHow = WhyHow(stemmedTitle, txt_chg, stemmedDescription, langFrom, langTo)
+    whoWhere = WhoWhere(url, description, langFrom, langTo)
     tone = ToneAnalyzer(description)
-    mdb.InserInDB(headline.get_country(), title, url, whoWhere, whyHow, tone)
+    mdb.InserInDB(headline.GetCountry(), title, url, whoWhere, whyHow, tone)
     print('title: ' + title +
           '\nurl: ' + url + 
           '\nWho/When/Where: ' + whoWhere + 
@@ -203,7 +203,7 @@ def main():
         for headline in top10.execQuery(er, sortBy="date", sortByAsc=False, maxItems=3):
             # print(article['lang'], article['url'], article['title'], article['body'])
             headlineObj = NewsArticle(headline, currentCountry)
-            summary(headlineObj, mdb, headlineObj.GetLang(), translate)
+            summary(headlineObj, mdb, headlineObj.GetLanguage(), translate)
         mdb.CloseConnection()
         
     #TODO: get headlines queried by country, loop over the country and 
