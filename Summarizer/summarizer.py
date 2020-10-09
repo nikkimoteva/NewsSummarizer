@@ -16,7 +16,7 @@ from MSTranslator import Translate
 from ToneAnalyzer import ToneAnalyzer
 from WordStem import Stemmer
 from eventregistry import EventRegistry, QueryArticlesIter
-
+from Keys import ERKey
 
  
 # summarize the text in 500 letters or 5 sentences maximum.
@@ -179,7 +179,7 @@ def main():
     """api_key = 'cf837dbe80ba4179beaa9ee8bcdfa08e'
     newsapi = NewsApiClient(api_key= api_key)
     countries = listOfCountries('newsAPI')"""
-    er = EventRegistry(apiKey = "95488268-0bf9-4f68-b80a-d108e7d57d71", allowUseOfArchive = False)
+    er = EventRegistry(apiKey = ERKey, allowUseOfArchive = False)
     countries = OneListOfCountry('Countries.txt')
     translate = sys.argv[1]
     """for count in countries:

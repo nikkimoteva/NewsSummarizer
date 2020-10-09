@@ -1,7 +1,8 @@
 import requests, uuid, json
+from Keys import MSKey
 
 def Translate(langFrom, langTo, text):
-    apiKey = '85c15359e016483483c6d4501ecea3ed'
+    apiKey = MSKey
     endpoint = 'https://api.cognitive.microsofttranslator.com/'
 
     path = '/translate?api-version=3.0'
